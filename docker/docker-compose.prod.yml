@@ -1,0 +1,54 @@
+# Production: images are built in CI and pushed to a registry (e.g. GHCR).
+# On the server: set BACKEND_IMAGE, FRONTEND_IMAGE, MIGRATE_IMAGE (see README), then:
+#   docker compose pull && docker compose up -d postgres && docker compose run --rm migrate && docker compose up -d backend frontend
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: boilerplate-postgres-prod
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    profiles: [tools]
+    image: ${MIGRATE_IMAGE}
+    environment:
+      DATABASE_URL: postgres://app:app@postgres:5432/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    image: ${BACKEND_IMAGE}
+    container_name: boilerplate-backend
+    environment:
+      NODE_ENV: production
+      SERVE_CLIENT: "false"
+      DATABASE_URL: postgres://app:app@postgres:5432/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "3000"
+
+  frontend:
+    image: ${FRONTEND_IMAGE}
+    container_name: boilerplate-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata_prod:

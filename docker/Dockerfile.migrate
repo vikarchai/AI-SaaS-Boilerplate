@@ -1,0 +1,7 @@
+# One-shot: drizzle-kit migrate (devDependencies). Used by compose service `migrate`.
+FROM node:24-bookworm-slim
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+CMD ["npm", "run", "db:migrate"]
